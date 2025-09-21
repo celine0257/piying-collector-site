@@ -2,158 +2,98 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>腾冲皮影戏 · 非遗探秘闯关（数据收集版）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>腾冲皮影戏 · 数据收集演示页</title>
+  <link rel="preconnect" href="https://piying-feishu-backend.vercel.app" crossorigin>
   <style>
-    :root{--c1:#0ea5e9;--ok:#059669;--err:#dc2626}
-    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Helvetica,Arial}
-    header{position:sticky;top:0;background:#fff;border-bottom:1px solid #eee;z-index:10}
-    .bar{max-width:1100px;margin:auto;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .brand{font-weight:700;color:#111;font-size:18px}.pill{background:#f1f5f9;padding:6px 10px;border-radius:999px;font-size:12px}
-    main{max-width:1100px;margin:auto;display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px}
-    @media (max-width:900px){main{grid-template-columns:1fr}}
-    .card{border:1px solid #eee;border-radius:12px;background:#fff;overflow:hidden}
-    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid #eee;font-size:16px}
-    .card .body{padding:14px}
-    label{display:block;font-size:14px;margin:8px 0 4px}
-    input,select,button{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:14px}
-    button{cursor:pointer}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .act{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.act button{width:auto}
-    .hint{font-size:12px;color:#64748b;margin-top:8px}.ok{color:var(--ok)}.err{color:var(--err)}
-    iframe{width:100%;height:70vh;border:1px solid #eee;border-radius:12px}
-    footer{padding:16px;text-align:center;color:#64748b}
+    :root{--bg:#0b0f14;--card:#111823;--fg:#e8f0fb;--muted:#9bb3cc;--accent:#5cc8ff}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,PingFang SC,Helvetica,Arial}
+    .wrap{max-width:860px;margin:0 auto;padding:24px}
+    .card{background:var(--card);border:1px solid #1f2a3a;border-radius:14px;padding:20px}
+    h1{margin:8px 0 4px;font-size:22px}
+    .muted{color:var(--muted);font-size:14px}
+    .row{display:grid;grid-template-columns:140px 1fr;gap:10px;margin:10px 0}
+    input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a3950;background:#0f1520;color:var(--fg)}
+    .btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);border:0;color:#00324a;font-weight:600;padding:10px 14px;border-radius:10px;cursor:pointer}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .log{white-space:pre-wrap;background:#0f1520;border:1px dashed #2a3950;border-radius:10px;padding:12px;margin-top:16px;color:#bfe3ff}
+    .ok{color:#8ef0a7}.err{color:#ff9090}
   </style>
 </head>
 <body>
-  <header>
-    <div class="bar">
-      <div class="brand">腾冲皮影戏 · 非遗探秘闯关</div>
-      <div class="pill">数据自动上报</div>
+  <div class="wrap">
+    <div class="card">
+      <h1>腾冲皮影戏 · 数据收集（演示）</h1>
+      <div class="muted">此页可单独使用，也可嵌到你的小游戏里。点击下方按钮会把一条“通关记录”发送到你的后端。</div>
+
+      <div class="row"><label>昵称</label><input id="name" placeholder="例如：小梅" /></div>
+      <div class="row"><label>年级</label>
+        <select id="grade">
+          <option>三年级</option><option>四年级</option><option selected>五年级</option><option>六年级</option>
+        </select>
+      </div>
+      <div class="row"><label>班级</label><input id="klass" placeholder="例如：三班" /></div>
+
+      <div class="row"><label>闯关用时（秒）</label><input id="time_sec" type="number" min="1" value="60" /></div>
+      <div class="row"><label>第3关步数</label><input id="l3_moves" type="number" min="0" value="8" /></div>
+      <div class="row"><label>是否观看视频</label>
+        <select id="v_seen"><option value="false">否</option><option value="true" selected>是</option></select>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn" id="btnSend">发送测试数据</button>
+        <button class="btn" id="btnDry">只测试通路（不入库）</button>
+      </div>
+
+      <div id="log" class="log">等待操作…</div>
+      <div class="muted" style="margin-top:10px">
+        ⚙️ 如嵌入你的游戏：调用 <code>window.Collect.send(payload)</code> 即可（下方已注入全局对象）。
+      </div>
     </div>
-  </header>
+  </div>
 
-  <main>
-    <section class="card">
-      <h3>① 学生信息</h3>
-      <div class="body">
-        <label>姓名</label>
-        <input id="name" placeholder="请输入姓名" />
-        <div class="row">
-          <div>
-            <label>年级</label>
-            <select id="grade">
-              <option value="" disabled selected>请选择年级</option>
-              <option>三年级</option><option>四年级</option>
-              <option>五年级</option><option>六年级</option>
-            </select>
-          </div>
-          <div>
-            <label>班级</label>
-            <input id="klass" placeholder="如：三班" />
-          </div>
-        </div>
-        <div class="hint">以上三项为必填；为保证排名统计，请如实填写。</div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h3>② 开始闯关</h3>
-      <div class="body">
-        <div class="act">
-          <button id="btnStart">开始计时</button>
-          <button id="btnMove">+1 步（可选）</button>
-          <label class="act">
-            <input type="checkbox" id="vseen" />
-            我已查看“灯光/唱腔/幕后”等知识点
-          </label>
-        </div>
-        <div class="hint">计时开始后请在右侧玩游戏；若游戏内无法自动统计步数，可在闯关时点击 “+1 步”。</div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h3>③ 通关提交</h3>
-      <div class="body">
-        <div class="row">
-          <div>
-            <label>第三关步数（可选）</label>
-            <input id="l3" type="number" min="0" placeholder="若未知可留空，系统将用总步数" />
-          </div>
-          <div>
-            <label>本次用时（秒）</label>
-            <input id="seconds" type="number" min="0" placeholder="点击“停止计时”后会自动填写" />
-          </div>
-        </div>
-        <div class="act" style="margin-top:8px">
-          <button id="btnStop">停止计时</button>
-          <button id="btnSubmit" style="background:var(--c1);color:#fff;border-color:transparent">提交成绩</button>
-        </div>
-        <div id="msg" class="hint"></div>
-      </div>
-    </section>
-
-    <section class="card" style="grid-column:1/-1">
-      <h3>游戏窗口</h3>
-      <div class="body">
-        <!-- 如需替换为你的游戏地址，请把 src 改为你的 GitHub Pages 链接 -->
-        <iframe id="gameframe" src="https://celine0257.github.io/piying-game1/" referrerpolicy="no-referrer"></iframe>
-        <div class="hint">提示：此页面不读取游戏内部数据，隐私安全。后续可升级为游戏主动上报（postMessage）。</div>
-      </div>
-    </section>
-  </main>
-
-  <footer>© 云南师范大学附属小学樱花语学校 · 腾冲皮影戏非遗推广</footer>
-
-  <!-- 先加载收集模块（非模块，兼容所有 Pages） -->
   <script src="./collect.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', function(){
-      // 初始化
-      window.PYCollect.init({ game: '腾冲皮影戏 · 非遗探秘闯关（数据收集版）' });
+    const $ = s => document.querySelector(s);
+    const $log = $('#log');
+    const setLog = (msg, cls='') => $log.innerHTML = `<span class="${cls}">${msg}</span>`;
 
-      const $ = id => document.getElementById(id);
-      let started = false;
-
-      $('btnStart').onclick = () => {
-        const name = $('name').value.trim();
-        const grade = $('grade').value;
-        const klass = $('klass').value.trim();
-        if(!name || !grade || !klass){
-          $('msg').textContent = '请先填写 姓名/年级/班级 再开始计时';
-          $('msg').className='hint err'; return;
-        }
-        window.PYCollect.setStudent({ name, grade, class: klass });
-        window.PYCollect.startTimer();
-        started = true;
-        $('msg').textContent = '⏱️ 已开始计时… 祝你闯关顺利！';
-        $('msg').className='hint ok';
+    $('#btnSend').addEventListener('click', async () => {
+      const payload = {
+        name: $('#name').value.trim() || '未命名同学',
+        grade: $('#grade').value,
+        class: $('#klass').value.trim() || '未填班级',
+        time_sec: Number($('#time_sec').value || 0),
+        l3_moves: Number($('#l3_moves').value || 0),
+        v_seen: $('#v_seen').value === 'true',
+        timestamp: new Date().toISOString(),
       };
+      setLog('发送中…');
+      try{
+        const res = await window.Collect.send(payload);
+        setLog('✅ 已提交：\n' + JSON.stringify(res, null, 2), 'ok');
+      }catch(e){
+        setLog('❌ 失败：\n' + (e.message||e), 'err');
+      }
+    });
 
-      $('btnMove').onclick = () => { window.PYCollect.addMove(); };
-      $('vseen').onchange = (e) => { window.PYCollect.markVideoSeen(!!e.target.checked); };
-
-      $('btnStop').onclick = () => {
-        if(!started){ $('msg').textContent = '请先点击“开始计时”'; $('msg').className='hint err'; return; }
-        const sec = window.PYCollect.stopTimer();
-        $('seconds').value = String(sec);
-        $('msg').textContent = '⏹️ 已停止计时：' + sec + ' 秒';
-        $('msg').className='hint ok';
+    $('#btnDry').addEventListener('click', async () => {
+      const payload = {
+        name: '通路测试',
+        grade: '五年级',
+        class: '一班',
+        time_sec: 12,
+        l3_moves: 3,
+        v_seen: false,
+        timestamp: new Date().toISOString(),
       };
-
-      $('btnSubmit').onclick = async () => {
-        const l3 = Number($('l3').value || '0');
-        if(Number.isFinite(l3) && l3>0) window.PYCollect.setLevel3Moves(l3);
-        if($('vseen').checked) window.PYCollect.markVideoSeen(true);
-
-        const ok = await window.PYCollect.submitFinal({ wrapper: 'collector-site-plain' });
-        if(ok){
-          $('msg').textContent = '✅ 成绩提交成功！如网络不佳，系统已自动排队稍后重试。';
-          $('msg').className = 'hint ok';
-        }else{
-          $('msg').textContent = '⚠️ 网络异常：数据已加入本地队列，联网后将自动重传。';
-          $('msg').className = 'hint err';
-        }
-      };
+      setLog('只测试通路（不入库）…');
+      try{
+        const res = await window.Collect.send(payload, {dryRun:true});
+        setLog('🧪 通路OK：\n' + JSON.stringify(res, null, 2), 'ok');
+      }catch(e){
+        setLog('❌ 失败：\n' + (e.message||e), 'err');
+      }
     });
   </script>
 </body>
