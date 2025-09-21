@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>腾冲皮影戏 · 非遗探秘闯关（数据收集版）</title>
+  <style>
+    :root{--c1:#0ea5e9;--ok:#059669;--err:#dc2626;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Helvetica,Arial;}
+    header{position:sticky;top:0;background:#fff;border-bottom:1px solid #eee;z-index:10}
+    .bar{max-width:1100px;margin:auto;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .brand{font-weight:700;color:#111;font-size:18px}
+    .pill{background:#f1f5f9;padding:6px 10px;border-radius:999px;font-size:12px}
+    main{max-width:1100px;margin:auto;display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px}
+    @media (max-width: 900px){ main{grid-template-columns:1fr} }
+    .card{border:1px solid #eee;border-radius:12px;overflow:hidden;background:#fff}
+    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid #eee;font-size:16px}
+    .card .body{padding:14px}
+    label{display:block;font-size:14px;margin:8px 0 4px}
+    input,select,button{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:14px}
+    button{cursor:pointer}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .act{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .act button{width:auto}
+    .hint{font-size:12px;color:#64748b;margin-top:8px}
+    .ok{color:var(--ok)} .err{color:var(--err)}
+    iframe{width:100%;height:70vh;border:1px solid #eee;border-radius:12px}
+    footer{padding:16px;text-align:center;color:#64748b}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="brand">腾冲皮影戏 · 非遗探秘闯关</div>
+      <div class="pill">数据自动上报</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h3>① 学生信息</h3>
+      <div class="body">
+        <label>姓名</label>
+        <input id="name" placeholder="请输入姓名">
+        <div class="row">
+          <div>
+            <label>年级</label>
+            <select id="grade">
+              <option value="" disabled selected>请选择年级</option>
+              <option>三年级</option><option>四年级</option>
+              <option>五年级</option><option>六年级</option>
+            </select>
+          </div>
+          <div>
+            <label>班级</label>
+            <input id="klass" placeholder="如：三班">
+          </div>
+        </div>
+        <div class="hint">以上三项为必填；为保证排名统计，请如实填写。</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>② 开始闯关</h3>
+      <div class="body">
+        <div class="act">
+          <button id="btnStart">开始计时</button>
+          <button id="btnMove">+1 步（可选）</button>
+          <label class="act">
+            <input type="checkbox" id="vseen">
+            我已查看“灯光/唱腔/幕后”等知识点
+          </label>
+        </div>
+        <div class="hint">计时开始后请在右侧玩游戏；若游戏内无法自动统计步数，可在闯关时点击 “+1 步”。</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>③ 通关提交</h3>
+      <div class="body">
+        <div class="row">
+          <div>
+            <label>第三关步数（可选）</label>
+            <input id="l3" type="number" min="0" placeholder="若未知可留空，系统将用总步数">
+          </div>
+          <div>
+            <label>本次用时（秒）</label>
+            <input id="seconds" type="number" min="0" placeholder="点击“停止计时”后会自动填写">
+          </div>
+        </div>
+        <div class="act" style="margin-top:8px">
+          <button id="btnStop">停止计时</button>
+          <button id="btnSubmit" style="background:var(--c1);color:#fff;border-color:transparent">提交成绩</button>
+        </div>
+        <div id="msg" class="hint"></div>
+      </div>
+    </section>
+
+    <section class="card" style="grid-column: 1 / -1">
+      <h3>游戏窗口</h3>
+      <div class="body">
+        <!-- 如需替换为你的游戏地址，请把 src 改成你的 GitHub Pages 链接 -->
+        <iframe id="gameframe" src="https://celine0257.github.io/piying-game1/" referrerpolicy="no-referrer"></iframe>
+        <div class="hint">提示：此页面不会读取游戏内部数据，隐私安全。以后可升级成游戏主动上报（postMessage）。</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>© 云南师范大学附属小学樱花语学校 · 腾冲皮影戏非遗推广</footer>
+
+  <script type="module">
+    import PYCollect from './collect.js';
+
+    PYCollect.init({ game: '腾冲皮影戏 · 非遗探秘闯关（数据收集版）' });
+    const $ = (id)=>document.getElementById(id);
+    let started = false;
+
+    $('btnStart').onclick = () => {
+      const name = $('name').value.trim();
+      const grade = $('grade').value;
+      const klass = $('klass').value.trim();
+      if(!name || !grade || !klass){
+        $('msg').textContent = '请先填写 姓名/年级/班级 再开始计时'; $('msg').className='hint err'; return;
+      }
+      PYCollect.setStudent({ name, grade, class: klass });
+      PYCollect.startTimer();
+      started = true;
+      $('msg').textContent = '⏱️ 已开始计时… 祝你闯关顺利！'; $('msg').className='hint ok';
+    };
+
+    $('btnMove').onclick = () => { PYCollect.addMove(); };
+
+    $('vseen').onchange = (e) => { PYCollect.markVideoSeen(!!e.target.checked); };
+
+    $('btnStop').onclick = () => {
+      if(!started){ $('msg').textContent = '请先点击“开始计时”'; $('msg').className='hint err'; return; }
+      const sec = PYCollect.stopTimer();
+      $('seconds').value = String(sec);
+      $('msg').textContent = '⏹️ 已停止计时：' + sec + ' 秒'; $('msg').className='hint ok';
+    };
+
+    $('btnSubmit').onclick = async () => {
+      const l3 = Number($('l3').value || '0');
+      if(Number.isFinite(l3) && l3>0) PYCollect.setLevel3Moves(l3);
+      if($('vseen').checked) PYCollect.markVideoSeen(true);
+
+      const ok = await PYCollect.submitFinal({ wrapper: 'collector-site-1.0' });
+      if(ok){
+        $('msg').textContent = '✅ 成绩提交成功！如网络不佳，系统已自动排队稍后重试。';
+        $('msg').className = 'hint ok';
+      }else{
+        $('msg').textContent = '⚠️ 网络异常：数据已加入本地队列，联网后将自动重传。';
+        $('msg').className = 'hint err';
+      }
+    };
+  </script>
+</body>
+</html>
