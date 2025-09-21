@@ -1,112 +1,56 @@
-/* ========= 游戏数据收集模块 collect.js（非模块版） ========= */
-/* 后端地址（已指向你部署的 Vercel） */
-var PY_ENDPOINT = 'https://piying-feishu-backend.vercel.app/api/collect';
-var PY_QUEUE_KEY = 'py_collect_queue_v1';
+// === 简单可复用的采集SDK（浏览器端） ===
+// 会向你的后端 POST JSON： https://piying-feishu-backend.vercel.app/api/collect
+// 用法：window.Collect.send(payload[, options])
 
-function pyNowISO(){ try{return new Date().toISOString()}catch{return null} }
-function pyLoadQ(){ try{return JSON.parse(localStorage.getItem(PY_QUEUE_KEY)||'[]')}catch{return[]} }
-function pySaveQ(q){ try{localStorage.setItem(PY_QUEUE_KEY,JSON.stringify(q))}catch{} }
+(() => {
+  const ENDPOINT = 'https://piying-feishu-backend.vercel.app/api/collect';
 
-async function pyPostJSON(body){
-  try{
-    var r = await fetch(PY_ENDPOINT,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
-    });
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    await r.json().catch(function(){});
-    return true;
-  }catch(e){ return false }
-}
-
-async function pyFlushQ(){
-  var q = pyLoadQ(); if(!q.length) return;
-  var rest = [];
-  for(var i=0;i<q.length;i++){
-    var ok = await pyPostJSON(q[i]);
-    if(!ok) rest.push(q[i]);
-  }
-  pySaveQ(rest);
-}
-
-function pyThrottle(fn,wait){
-  wait = wait||300; var t=0;
-  return function(){
-    var now = Date.now();
-    if(now - t > wait){ t = now; fn.apply(null,arguments); }
-  }
-}
-
-window.PYCollect = {
-  _meta:{game:'腾冲皮影戏 · 非遗探秘闯关',version:'1.0.0',timestamp:pyNowISO()},
-  _student:{name:'',grade:'',class:''},
-  _state:{startAt:0,totalTimeSec:0,totalMoves:0,l3Moves:0,vSeen:false},
-
-  init:function(opts){
-    opts = opts||{};
-    for (var k in opts){ this._meta[k]=opts[k] }
-    this._meta.timestamp = pyNowISO();
-    window.addEventListener('online', function(){ pyFlushQ() });
-    setTimeout(pyFlushQ, 800);
-  },
-
-  setStudent:function(o){
-    o = o||{};
-    this._student.name = (o.name||'').trim();
-    this._student.grade = (o.grade||'').trim();
-    this._student.class = (o['class']||'').trim();
-  },
-
-  startTimer:function(){
-    this._state.startAt = performance.now();
-    var self = this;
-    return function(){ return self.stopTimer() }
-  },
-
-  stopTimer:function(){
-    if(!this._state.startAt) return this._state.totalTimeSec;
-    var d = (performance.now() - this._state.startAt)/1000;
-    this._state.totalTimeSec = Math.max(0, Math.round(d));
-    this._state.startAt = 0;
-    return this._state.totalTimeSec;
-  },
-
-  addMove: pyThrottle(function(){
-    this._state.totalMoves++;
-  }, 60),
-
-  setLevel3Moves:function(n){
-    if(typeof n==='number' && isFinite(n)){
-      this._state.l3Moves = Math.max(0, Math.round(n));
-    }
-  },
-
-  markVideoSeen:function(flag){
-    this._state.vSeen = !!flag;
-  },
-
-  submitFinal: async function(extra){
-    extra = extra||{};
-    if(this._state.startAt) this.stopTimer();
-    var body = {
-      name: this._student.name,
-      grade: this._student.grade,
-      class: this._student.class,
-      time_sec: this._state.totalTimeSec,
-      l3_moves: this._state.l3Moves || this._state.totalMoves,
-      v_seen: this._state.vSeen,
-      timestamp: pyNowISO(),
-      meta: (function(meta,ext){
-        var m={}; for(var k in meta){m[k]=meta[k]} for(var k2 in ext){m[k2]=ext[k2]} return m;
-      })(this._meta, extra)
+  // 校验并规范字段（你的后端会做最终校验，这里做基础防呆）
+  function normalize(data = {}) {
+    const out = {
+      name: String(data.name ?? '').slice(0, 40) || '未命名同学',
+      grade: String(data.grade ?? '').slice(0, 10) || '未填年级',
+      class: String(data.class ?? '').slice(0, 10) || '未填班级',
+      time_sec: Number.isFinite(+data.time_sec) ? Math.max(0, +data.time_sec) : 0,
+      l3_moves: Number.isFinite(+data.l3_moves) ? Math.max(0, +data.l3_moves) : 0,
+      v_seen: Boolean(data.v_seen),
+      timestamp: data.timestamp ? String(data.timestamp) : new Date().toISOString(),
     };
-    if(!body.name || !body.grade || !body.class){
-      alert('请先填写：姓名 / 年级 / 班级');
-      return false;
-    }
-    var ok = await pyPostJSON(body);
-    if(!ok){ var q = pyLoadQ(); q.push(body); pySaveQ(q) }
-    return ok;
+    return out;
   }
-};
+
+  async function postJSON(url, body) {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      mode: 'cors', // 你的后端已允许 CORS
+      body: JSON.stringify(body),
+    });
+    const text = await resp.text();
+    let json;
+    try { json = JSON.parse(text) } catch { json = {raw:text} }
+    if (!resp.ok) {
+      const msg = json?.error || resp.status + ' ' + resp.statusText;
+      throw new Error(msg);
+    }
+    return json;
+  }
+
+  /**
+   * 发送数据
+   * @param {Object} payload - {name, grade, class, time_sec, l3_moves, v_seen, timestamp}
+   * @param {Object} options - {dryRun:boolean} 仅测试通路，不入库
+   */
+  async function send(payload, options = {}) {
+    const norm = normalize(payload);
+    const url = options.dryRun ? `${ENDPOINT}?dry=1` : ENDPOINT;
+    // 附带来源信息，便于后端/表格统计
+    norm._client = 'github-pages';
+    norm._ua = navigator.userAgent.slice(0,160);
+    norm._page = location.href;
+    return await postJSON(url, norm);
+  }
+
+  // 暴露到全局（给游戏里直接调用）
+  window.Collect = { send };
+})();
