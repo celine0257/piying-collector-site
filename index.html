@@ -1,138 +1,94 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>腾冲皮影戏 · 数据收集（演示）</title>
+  <title>腾冲皮影戏 · 数据收集</title>
   <style>
-    :root{--bg:#0f172a;--panel:#0b1220;--muted:#9aa4b2;--txt:#e6edf3;--accent:#60a5fa;--good:#22c55e;--bad:#ef4444}
-    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"PingFang SC","Microsoft YaHei",sans-serif;background:#0b1220;color:var(--txt)}
-    .wrap{max-width:1080px;margin:32px auto;padding:0 16px}
-    .card{background:linear-gradient(180deg,#0f172a,#0b1220);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:22px 22px 26px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
-    h1{margin:0 0 12px;font-size:26px}
-    .muted{color:var(--muted)}
-    label{display:block;margin:18px 0 8px}
-    input[type=text],select,input[type=number]{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#0b1220;color:var(--txt);outline:none}
-    input[type=number]{appearance:textfield} input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{appearance:none;margin:0}
-    .row{display:grid;grid-template-columns:1fr;gap:14px}
-    @media(min-width:640px){.row{grid-template-columns:1fr 1fr}}
-    .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
-    button{padding:11px 16px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:#0b1220;color:var(--txt);cursor:pointer}
-    .primary{background:linear-gradient(180deg,#1e40af,#1d4ed8);border-color:#1d4ed8}
-    .ghost{background:#0b1220}
-    .ok{color:var(--good)} .err{color:var(--bad)}
-    .status{margin-top:16px;padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:10px;min-height:52px;white-space:pre-wrap}
-    code{background:#0b1220;border:1px solid rgba(255,255,255,.12);padding:2px 6px;border-radius:6px}
-    .foot{margin-top:14px;color:var(--muted);font-size:14px}
-    .inline{display:inline-flex;align-items:center;gap:6px}
+    body{font-family:system-ui,-apple-system,"PingFang SC";background:#0b1220;color:#e5e7eb;margin:0;padding:20px}
+    .wrap{max-width:720px;margin:auto}
+    .card{background:#0f172a;padding:16px;border-radius:12px;margin-bottom:16px}
+    label{display:block;margin:8px 0}
+    input,select,button{padding:8px 12px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#fff}
+    button{background:#3b82f6;color:#fff;border:none;cursor:pointer}
+    button:disabled{opacity:.5}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border-bottom:1px solid #374151;padding:6px 8px;text-align:left;font-size:14px}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>腾冲皮影戏 · 数据收集（演示）</h1>
-      <div class="muted">此页可单独使用，也可以嵌到你的小游戏里。点击下方按钮会把一条“通关记录”发送到后端。</div>
-
-      <div class="row">
-        <div>
-          <label>昵称</label>
-          <input id="name" type="text" placeholder="例如：小梅" />
-        </div>
-        <div>
-          <label>年级</label>
-          <select id="grade">
-            <option>三年级</option><option>四年级</option><option selected>五年级</option><option>六年级</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>班级</label>
-          <input id="klass" type="text" placeholder="例如：三班" />
-        </div>
-        <div>
-          <label>闯关用时（秒）</label>
-          <input id="timeSec" type="number" min="0" value="60" />
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>第3关步数</label>
-          <input id="l3" type="number" min="0" value="8" />
-        </div>
-        <div>
-          <label>是否观看视频</label>
-          <select id="vSeen">
-            <option value="是" selected>是</option>
-            <option value="否">否</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="btns">
-        <button class="primary" id="btnSend">发送测试数据</button>
-        <button class="ghost" id="btnDry">只测试通路（不入库）</button>
-        <button class="ghost" id="btnPing">连通性检测（/ping）</button>
-      </div>
-
-      <div class="status" id="status">等待操作…</div>
-
-      <div class="foot">
-        <span class="inline">🔗 前端调用接口：<code id="apiHint"></code></span><br/>
-        <span class="inline">🧩 如要嵌入你的游戏：调用 <code>window.Collect.send(payload)</code> 即可（本页已注入全局对象）。</span>
-      </div>
-    </div>
+<div class="wrap">
+  <div class="card">
+    <h1>腾冲皮影戏 · 数据收集</h1>
+    <label>昵称 <input id="name" placeholder="如：张三" /></label>
+    <label>年级 
+      <select id="grade">
+        <option value="">请选择</option>
+        <option>一年级</option><option>二年级</option><option>三年级</option>
+        <option>四年级</option><option>五年级</option><option>六年级</option>
+      </select>
+    </label>
+    <label>班级 <input id="klass" placeholder="如：3班" /></label>
+    <label>第3关步数 <input type="number" id="moves" value="0" /></label>
+    <label>是否看视频 
+      <select id="seen"><option value="是">是</option><option value="否">否</option></select>
+    </label>
+    <button id="submit">提交数据</button>
   </div>
 
-  <script src="./collect.js"></script>
-  <script>
-    // 显示当前 API 根地址
-    document.getElementById('apiHint').textContent = window.__COLLECT_API__ || '（未初始化）';
+  <div class="card">
+    <h2>本机排行榜</h2>
+    <table id="board"><thead><tr><th>#</th><th>昵称</th><th>年级</th><th>班级</th><th>步数</th><th>看视频</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
 
-    const $ = (id)=>document.getElementById(id);
-    const statusBox = $('status');
+<script>
+const CLOUD_ENDPOINT = "https://piying-feishu-backend.vercel.app/api/collect";
+const STORAGE_KEY = "piying_records";
 
-    function getPayload(){
-      return {
-        name: $('name').value.trim(),
-        grade: $('grade').value,
-        class: $('klass').value.trim(),
-        time_sec: Number($('timeSec').value || 0),
-        l3_moves: Number($('l3').value || 0),
-        v_seen: $('vSeen').value,
-        timestamp: new Date().toISOString()
-      };
+function loadRecords(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]")}catch{return[]}}
+function saveRecords(all){localStorage.setItem(STORAGE_KEY,JSON.stringify(all))}
+function refreshBoard(){
+  const tb=document.querySelector("#board tbody");tb.innerHTML="";
+  loadRecords().forEach((r,i)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${i+1}</td><td>${r.name}</td><td>${r.grade}</td><td>${r.class}</td><td>${r.moves}</td><td>${r.seen}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+document.querySelector("#submit").onclick=async()=>{
+  const rec={
+    name:document.querySelector("#name").value,
+    grade:document.querySelector("#grade").value,
+    class:document.querySelector("#klass").value,
+    moves:Number(document.querySelector("#moves").value),
+    seen:document.querySelector("#seen").value
+  };
+  const all=loadRecords();all.push(rec);saveRecords(all);refreshBoard();
+
+  const payload={
+    feishu:{
+      "昵称":rec.name,
+      "年级":rec.grade,
+      "班级":rec.class,
+      "第3关步数":rec.moves,
+      "是否看视频":rec.seen
     }
+  };
 
-    // 发送并写状态
-    async function sendAndReport(payload, dry=false){
-      statusBox.textContent = '正在发送…';
-      try{
-        const res = await window.Collect.send(payload, {dry});
-        statusBox.innerHTML =
-          '<span class="ok">✔ 已发送</span>\\n' +
-          JSON.stringify(res, null, 2);
-      }catch(err){
-        statusBox.innerHTML =
-          '<span class="err">✖ 失败</span>\\n' +
-          (err && err.message ? err.message : String(err));
-      }
-    }
+  try{
+    const resp=await fetch(CLOUD_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const data=await resp.json();
+    console.log("云端返回：",data);
+    if(!data.ok) alert("上传失败，但已保存本机");
+    else alert("✅ 已保存并上传成功");
+  }catch(e){
+    alert("网络异常，已保存本机，稍后再试");
+  }
+};
 
-    $('btnSend').onclick = ()=>sendAndReport(getPayload(), false);
-    $('btnDry').onclick  = ()=>sendAndReport(getPayload(), true);
-
-    $('btnPing').onclick = async ()=>{
-      statusBox.textContent = '正在请求 /ping…';
-      try{
-        const res = await window.Collect.ping();
-        statusBox.innerHTML = '<span class="ok">✔ /ping OK</span>\\n' + JSON.stringify(res, null, 2);
-      }catch(err){
-        statusBox.innerHTML = '<span class="err">✖ /ping 失败</span>\\n' + (err?.message || String(err));
-      }
-    };
-  </script>
+refreshBoard();
+</script>
 </body>
 </html>
