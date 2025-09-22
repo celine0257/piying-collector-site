@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>腾冲皮影戏 · 数据收集</title>
+  <title>腾冲皮影戏 · 数据收集（演示）</title>
   <style>
     body{font-family:system-ui,-apple-system,"PingFang SC";background:#0b1220;color:#e5e7eb;margin:0;padding:20px}
     .wrap{max-width:720px;margin:auto}
     .card{background:#0f172a;padding:16px;border-radius:12px;margin-bottom:16px}
-    label{display:block;margin:8px 0}
+    h1,h2{margin:0 0 10px}
+    label{display:block;margin:10px 0}
     input,select,button{padding:8px 12px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#fff}
-    button{background:#3b82f6;color:#fff;border:none;cursor:pointer}
+    button{background:#3b82f6;border:none;cursor:pointer}
     button:disabled{opacity:.5}
     table{width:100%;border-collapse:collapse;margin-top:12px}
     th,td{border-bottom:1px solid #374151;padding:6px 8px;text-align:left;font-size:14px}
@@ -29,7 +30,7 @@
       </select>
     </label>
     <label>班级 <input id="klass" placeholder="如：3班" /></label>
-    <label>第3关步数 <input type="number" id="moves" value="0" /></label>
+    <label>第3关步数 <input type="number" id="moves" value="0" min="0" /></label>
     <label>是否看视频 
       <select id="seen"><option value="是">是</option><option value="否">否</option></select>
     </label>
@@ -44,7 +45,7 @@
 
 <script>
 const CLOUD_ENDPOINT = "https://piying-feishu-backend.vercel.app/api/collect";
-const STORAGE_KEY = "piying_records";
+const STORAGE_KEY = "piying_records_simple_v1";
 
 function loadRecords(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]")}catch{return[]}}
 function saveRecords(all){localStorage.setItem(STORAGE_KEY,JSON.stringify(all))}
@@ -59,32 +60,42 @@ function refreshBoard(){
 
 document.querySelector("#submit").onclick=async()=>{
   const rec={
-    name:document.querySelector("#name").value,
-    grade:document.querySelector("#grade").value,
-    class:document.querySelector("#klass").value,
-    moves:Number(document.querySelector("#moves").value),
+    name:document.querySelector("#name").value.trim(),
+    grade:document.querySelector("#grade").value.trim(),
+    class:document.querySelector("#klass").value.trim(),
+    moves:Number(document.querySelector("#moves").value || 0),
     seen:document.querySelector("#seen").value
   };
-  const all=loadRecords();all.push(rec);saveRecords(all);refreshBoard();
+  if(!rec.name || !rec.grade || !rec.class){ alert("请填写昵称、年级、班级"); return; }
 
-  const payload={
-    feishu:{
-      "昵称":rec.name,
-      "年级":rec.grade,
-      "班级":rec.class,
-      "第3关步数":rec.moves,
-      "是否看视频":rec.seen
-    }
-  };
+  // 本机保存
+  const all=loadRecords(); all.push(rec); saveRecords(all); refreshBoard();
+
+  // 仅 5 列，列名与飞书一致
+  const payload={ feishu:{
+    "昵称":rec.name,
+    "年级":rec.grade,
+    "班级":rec.class,
+    "第3关步数":rec.moves,
+    "是否看视频":rec.seen
+  }};
 
   try{
-    const resp=await fetch(CLOUD_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    const data=await resp.json();
-    console.log("云端返回：",data);
-    if(!data.ok) alert("上传失败，但已保存本机");
-    else alert("✅ 已保存并上传成功");
+    const resp=await fetch(CLOUD_ENDPOINT,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if(!data.ok){
+      console.warn("上传失败：", data);
+      alert("网络异常（已保存在本机榜单），稍后再试。");
+    }else{
+      alert("✅ 已保存并上传成功");
+    }
   }catch(e){
-    alert("网络异常，已保存本机，稍后再试");
+    console.warn("上传异常：", e);
+    alert("网络异常（已保存在本机榜单），稍后再试。");
   }
 };
 
