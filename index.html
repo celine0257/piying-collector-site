@@ -1,1 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>数据上报（5项）</title>
+  <style>
+    body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#0b1220;color:#e5e7eb;margin:0}
+    .wrap{max-width:720px;margin:0 auto;padding:18px}
+    .card{background:#0f172a;border:1px solid #1f2937;border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    h1{margin:0 0 12px}
+    label{display:block;margin:12px 0 6px}
+    input,select,button{width:100%;border:1px solid #334155;background:#0b1220;color:#fff;border-radius:12px;padding:10px 12px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    button{background:#60a5fa;color:#09111f;font-weight:700;cursor:pointer;margin-top:16px}
+    .muted{color:#94a3b8;font-size:13px;margin-top:10px}
+    .ok{color:#34d399}
+    .err{color:#f87171}
+    .badge{display:inline-block;border:1px solid #334155;border-radius:999px;padding:2px 10px;font-size:12px;margin-left:8px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>上报测试（5项） <span class="badge">对接：piying-feishu-backend /api/collect</span></h1>
 
+    <label>昵称（例如：六(3)-29）
+      <input id="name" placeholder="例如：六(3)-29" />
+    </label>
+
+    <div class="row">
+      <div>
+        <label>年级
+          <select id="grade">
+            <option value="">请选择</option>
+            <option>一年级</option><option>二年级</option>
+            <option>三年级</option><option>四年级</option>
+            <option>五年级</option><option>六年级</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>班级
+          <input id="klass" placeholder="如：3班" />
+        </label>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>第3关步数（数字）
+          <input id="moves" type="number" inputmode="numeric" placeholder="如：8" />
+        </label>
+      </div>
+      <div>
+        <label>是否看视频
+          <select id="vseen">
+            <option value="true">是</option>
+            <option value="false">否</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <button id="send">提交到云端（飞书）</button>
+    <div id="msg" class="muted"></div>
+  </div>
+
+  <p class="muted">
+    说明：此页面仅发送 <b>5个字段</b> 到后端：<code>name / grade / class / l3_moves / v_seen</code>。
+    后端会把 <code>v_seen</code> 布尔自动转成“是/否”，并写入飞书表的「昵称、年级、班级、第3关步数、是否看视频」五列。
+  </p>
+</div>
+
+<script>
+  // ★★★ 仅此一处：你的后端地址（不要改路径） ★★★
+  const CLOUD_ENDPOINT = 'https://piying-feishu-backend.vercel.app/api/collect';
+
+  const $ = s => document.querySelector(s);
+  const msg = $('#msg');
+
+  function say(text, ok = false) {
+    msg.innerHTML = text;
+    msg.className = 'muted ' + (ok ? 'ok' : 'err');
+  }
+
+  async function postJSON(url, data) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(data)
+    });
+    const t = await r.text();
+    try { return { status:r.status, json: JSON.parse(t) }; }
+    catch { return { status:r.status, json: { raw:t } }; }
+  }
+
+  $('#send').onclick = async () => {
+    const payload = {
+      name:  ($('#name').value || '').trim(),
+      grade: ($('#grade').value || '').trim(),
+      class: ($('#klass').value || '').trim(),
+      l3_moves: Number($('#moves').value || 0),
+      v_seen: ($('#vseen').value === 'true')
+    };
+
+    // 简单必填校验（与后端保持一致）
+    if (!payload.name || !payload.grade || !payload.class || isNaN(payload.l3_moves)) {
+      say('请把 昵称/年级/班级/步数 填完整；是否看视频已默认。', false);
+      return;
+    }
+
+    say('提交中…');
+    try {
+      const res = await postJSON(CLOUD_ENDPOINT, payload);
+      if (res.status === 200 && res.json && res.json.ok) {
+        say('✅ 写入成功：' + (res.json.msg || 'success'), true);
+      } else {
+        say('❌ 写入失败：' + JSON.stringify(res.json || {}), false);
+      }
+    } catch (e) {
+      say('❌ 网络异常：' + e, false);
+    }
+  };
+</script>
+</body>
+</html>
