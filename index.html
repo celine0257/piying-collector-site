@@ -1,1 +1,183 @@
+// api/collect.js  —— 最终版（只收 5 项，稳定写入飞书）
+// 需要的环境变量：FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_APP_TOKEN, FEISHU_TABLE_ID
 
+export default async function handler(req, res) {
+  // ---- CORS ----
+  const CORS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+  if (req.method === "OPTIONS") {
+    return res.setHeader("Content-Type", "application/json")
+      .setHeader("Cache-Control", "no-cache")
+      .setHeaders(CORS)
+      .status(200).end();
+  }
+
+  // 健康检查（你 curl GET /api/collect 可看到尾号，确认环境变量）
+  if (req.method === "GET") {
+    return res.setHeaders(CORS).status(200).json({
+      ok: true,
+      message: "health ok",
+      seen: {
+        token_mode: "app-id-secret",
+        table_id_tail: (process.env.FEISHU_TABLE_ID || "").slice(-4),
+        app_token_tail: (process.env.FEISHU_APP_TOKEN || "").slice(-4),
+      }
+    });
+  }
+
+  if (req.method !== "POST") {
+    return res.setHeaders(CORS).status(405).json({ ok: false, message: "Use POST" });
+  }
+
+  // ---------- 解析请求体（兼容两种格式） ----------
+  let body = {};
+  try {
+    body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+  } catch (e) {
+    return res.setHeaders(CORS).status(400).json({ ok: false, step: "parse_body", error: String(e) });
+  }
+
+  // 1) 兼容你曾经用过的格式：{ "fields": { "昵称": "...", "年级": "...", "班级": "...", "第3关步数": 8, "是否看视频": "是" } }
+  let fieldsFromClient = null;
+  if (body && typeof body.fields === "object") {
+    fieldsFromClient = body.fields;
+  }
+
+  // 2) 兼容英文五键：{name, grade, class, l3_moves, v_seen}
+  //    以及你之前偶尔带的 {feishu:{中文键}}，都转成中文键写入
+  const norm = () => {
+    // 英文 5 键
+    if (body && (body.name || body.grade || body.class || typeof body.l3_moves !== "undefined" || typeof body.v_seen !== "undefined")) {
+      return {
+        "昵称": String(body.name ?? ""),
+        "年级": String(body.grade ?? ""),
+        "班级": String(body.class ?? ""),
+        "第3关步数": Number(body.l3_moves ?? 0),
+        "是否看视频": (typeof body.v_seen === "boolean")
+          ? (body.v_seen ? "是" : "否")
+          : (String(body.v_seen ?? "").trim() || "否")
+      };
+    }
+    // body.feishu 里就是中文键
+    if (body && typeof body.feishu === "object") {
+      const f = body.feishu || {};
+      return {
+        "昵称": String(f["昵称"] ?? ""),
+        "年级": String(f["年级"] ?? ""),
+        "班级": String(f["班级"] ?? ""),
+        "第3关步数": Number(f["第3关步数"] ?? 0),
+        "是否看视频": (typeof f["是否看视频"] === "boolean")
+          ? (f["是否看视频"] ? "是" : "否")
+          : (String(f["是否看视频"] ?? "").trim() || "否")
+      };
+    }
+    return null;
+  };
+
+  const fields = fieldsFromClient ?? norm();
+
+  // ---------- 严格只收 5 项 ----------
+  const cleanFields = {
+    "昵称": fields?.["昵称"] ?? "",
+    "年级": fields?.["年级"] ?? "",
+    "班级": fields?.["班级"] ?? "",
+    "第3关步数": Number(fields?.["第3关步数"] ?? 0),
+    "是否看视频": (() => {
+      const v = fields?.["是否看视频"];
+      if (typeof v === "boolean") return v ? "是" : "否";
+      const s = String(v ?? "").trim();
+      return s === "是" || s === "否" ? s : (s.toLowerCase() === "true" ? "是" : (s.toLowerCase() === "false" ? "否" : "否"));
+    })(),
+  };
+
+  // 必填校验（需要 5 项都有值）
+  const miss = [];
+  if (!cleanFields["昵称"]) miss.push("昵称");
+  if (!cleanFields["年级"]) miss.push("年级");
+  if (!cleanFields["班级"]) miss.push("班级");
+  if (Number.isNaN(cleanFields["第3关步数"])) miss.push("第3关步数");
+  if (!cleanFields["是否看视频"]) miss.push("是否看视频");
+  if (miss.length) {
+    return res.setHeaders(CORS).status(400).json({
+      ok: false,
+      step: "validate",
+      message: "fields required",
+      miss,
+      example: { fields: { "昵称": "小明", "年级": "六年级", "班级": "3班", "第3关步数": 8, "是否看视频": "是" } }
+    });
+  }
+
+  // ---------- 拿 tenant_access_token ----------
+  const app_id = process.env.FEISHU_APP_ID;
+  const app_secret = process.env.FEISHU_APP_SECRET;
+  const app_token = process.env.FEISHU_APP_TOKEN; // bitable base appToken
+  const table_id = process.env.FEISHU_TABLE_ID;
+
+  if (!app_id || !app_secret || !app_token || !table_id) {
+    return res.setHeaders(CORS).status(500).json({
+      ok: false,
+      step: "env",
+      message: "missing env",
+      miss: {
+        FEISHU_APP_ID: !!app_id,
+        FEISHU_APP_SECRET: !!app_secret,
+        FEISHU_APP_TOKEN: !!app_token,
+        FEISHU_TABLE_ID: !!table_id
+      }
+    });
+  }
+
+  let token = "";
+  try {
+    const tResp = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ app_id, app_secret })
+    });
+    const t = await tResp.json();
+    if (t.code !== 0) throw new Error(JSON.stringify(t));
+    token = t.tenant_access_token;
+  } catch (e) {
+    return res.setHeaders(CORS).status(500).json({ ok: false, step: "get_token", error: String(e) });
+  }
+
+  // ---------- 写入飞书多维表 ----------
+  try {
+    const fResp = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${app_token}/tables/${table_id}/records`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ records: [{ fields: cleanFields }] })
+    });
+    const fjson = await fResp.json();
+    if (fjson.code !== 0) {
+      return res.setHeaders(CORS).status(200).json({
+        ok: false,
+        step: "create_record",
+        feishu: fjson
+      });
+    }
+    const rec = fjson.data?.records?.[0] || {};
+    return res.setHeaders(CORS).status(200).json({
+      ok: true,
+      step: "create_record",
+      feishu: fjson,
+      // 方便你在终端里看到关键回显
+      "年级": cleanFields["年级"],
+      "是否看视频": cleanFields["是否看视频"],
+      "昵称": cleanFields["昵称"],
+      "班级": cleanFields["班级"],
+      "第3关步数": cleanFields["第3关步数"],
+      "id": rec.id,
+      "record_id": rec.record_id,
+      "msg": "success"
+    });
+  } catch (e) {
+    return res.setHeaders(CORS).status(500).json({ ok: false, step: "create_record_catch", error: String(e) });
+  }
+}
